@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+.venv/
+
+# Logs
+logs/
+*.log
+
+# Data outputs
+data/
+*.parquet
+
+# OS files
+.DS_Store
+Thumbs.db
+
+#IDE
+.vscode/
+
+#Egg
+*.egg-info/

@@ -1,0 +1,17 @@
+aws_region: "us-east-1"
+openalex_bucket: "openalex"
+min_publication_year: 2005
+max_publication_year: 2024
+parquet_compression: "zstd"
+data_path: "data"
+logs_path: "logs"
+concept_score_threshold: 0.3
+selected_concepts:
+  enabled: True
+  get_all_concepts: False
+  concept_ids:
+    - "C119857082"
+    - "C154945302"
+    - "C2776899757"
+    - "C105795698"
+    - "C2522767166"
