@@ -27,7 +27,7 @@ def run(context):
         for obj in page['Contents']:
             shard_key = obj['Key']
             shard_name = shards.get_shard_name(shard_key)
-            output_path = paths.authors_output_path(shard_name, config["data_root"])
+            output_path = paths.authors_output_path(shard_name, config["shards_root"])
             if (output_path.exists()) and writers.is_valid_parquet(output_path):
                 logger.info(f"Skipping {shard_key}, already fully processed.")
                 authors_count += 1

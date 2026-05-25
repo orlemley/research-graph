@@ -11,12 +11,12 @@ WORKS_DATASETS = (
 )
 
 
-def works_output_paths(shard_name, data_root):
+def works_output_paths(shard_name, output_root):
     return {
-        dataset: data_root / dataset / f"{shard_name}.parquet"
+        dataset: output_root / dataset / f"{shard_name}.parquet"
         for dataset in WORKS_DATASETS
     }
 
 
-def authors_output_path(shard_name, data_root):
-    return data_root / "authors" / f"{shard_name}.parquet"
+def authors_output_path(shard_name, output_root):
+    return output_root / "authors" / f"{shard_name}.parquet"

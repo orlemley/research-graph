@@ -15,7 +15,7 @@ def process_works_shard(shard_key, context):
     selected_concepts = config['selected_concepts']
 
     shard_name = shards.get_shard_name(shard_key)
-    output_paths = paths.works_output_paths(shard_name, config["data_root"])
+    output_paths = paths.works_output_paths(shard_name, config["shards_root"])
 
     works_writers = {
     "works": writers.BatchedParquetWriter(output_paths["works"], schemas.WORKS_SCHEMA, compression = config["parquet_compression"]),

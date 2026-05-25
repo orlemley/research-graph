@@ -13,6 +13,10 @@ def load_config():
     config["data_path"] = Path(config["data_path"])
     config["logs_path"] = Path(config["logs_path"])
     config["data_root"] = config["base_path"] / config["data_path"]
+    config["shards_path"] = Path(config["shards_path"])
+    config["shards_root"] = config["base_path"] / config["data_path"] / config["shards_path"]
+    config["tables_path"] = Path(config["tables_path"])
+    config["tables_root"] = config["base_path"] / config["data_path"] / config["tables_path"]
     return config
 
 

@@ -27,7 +27,7 @@ def run(context):
         for obj in page['Contents']:
             shard_key = obj['Key']
             shard_name = shards.get_shard_name(shard_key)
-            output_paths = paths.works_output_paths(shard_name, config["data_root"])
+            output_paths = paths.works_output_paths(shard_name, config["shards_root"])
             paths_to_check = output_paths.copy()
             if not config['selected_concepts']["enabled"]:
                 paths_to_check.pop("selected_concepts")

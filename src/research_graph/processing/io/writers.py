@@ -4,6 +4,7 @@ import shutil
 import logging
 import pyarrow as pa
 import pyarrow.parquet as pq
+import re
 
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,11 @@ class BatchedParquetWriter:
 
         self.writer.close()
         shutil.move(self.temp_file, self.filename)
+
+
+def extract_date(name):
+    match = re.search(r"(\d{4}-\d{2}-\d{2})", name)
+    return match.group(1) if match else None
 
 
 def is_valid_parquet(path):

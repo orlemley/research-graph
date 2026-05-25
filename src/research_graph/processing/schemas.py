@@ -52,6 +52,11 @@ SCORES_SCHEMA = pa.schema([
     pa.field('concept_id', pa.string()),
     pa.field('concept_score', pa.float64())
 ])
+SELECTED_SCORES_SCHEMA = pa.schema([
+    pa.field('work_id', pa.string()),
+    pa.field('concept_id', pa.string()),
+    pa.field('concept_score', pa.float64())
+])
 AUTHORS_SCHEMA = pa.schema([
     pa.field('author_id', pa.string()),
     pa.field('author_name', pa.string()),
@@ -60,9 +65,4 @@ AUTHORS_SCHEMA = pa.schema([
     pa.field('works_count', pa.int32()),
     pa.field('cited_by_count', pa.int32()),
     pa.field('h_index', pa.int32())
-])
-SELECTED_SCORES_SCHEMA = pa.schema([
-    pa.field('work_id', pa.string()),
-    pa.field('concept_id', pa.string()),
-    pa.field('concept_score', pa.float64())
 ])

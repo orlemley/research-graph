@@ -4,6 +4,8 @@ min_publication_year: 2005
 max_publication_year: 2024
 parquet_compression: "zstd"
 data_path: "data"
+shards_path: "shards"
+tables_path: "tables"
 logs_path: "logs"
 concept_score_threshold: 0.3
 selected_concepts:
@@ -15,3 +17,8 @@ selected_concepts:
     - "C2776899757"
     - "C105795698"
     - "C2522767166"
+temp_cleanup: True
+enabled_pipelines:
+  - works
+  - authors
+  - deduplication

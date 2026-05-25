@@ -23,3 +23,6 @@ Thumbs.db
 
 #Egg
 *.egg-info/
+
+# Temp
+*.tmp

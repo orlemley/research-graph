@@ -32,7 +32,7 @@ def open_shard(shard_key, context):
         raise
     except Exception as e:
         logger.exception(f"Unexpected error while downloading {shard_key}: {e}")
-        return
+        raise
     
     if shard_key.endswith('.gz'):
         with gzip.GzipFile(fileobj=response['Body']) as f:

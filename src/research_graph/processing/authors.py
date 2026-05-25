@@ -14,7 +14,7 @@ def process_authors_shard(shard_key, context):
     config = context.config
 
     shard_name = shards.get_shard_name(shard_key)
-    output_path = paths.authors_output_path(shard_name, config["data_root"])
+    output_path = paths.authors_output_path(shard_name, config["shards_root"])
     
     authors_writer = writers.BatchedParquetWriter(output_path,schemas.AUTHORS_SCHEMA, compression=config["parquet_compression"])
     

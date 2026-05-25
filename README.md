@@ -6,7 +6,7 @@ Data source: [OpenAlex public snapshot](https://developers.openalex.org/download
 
 The pipeline extracts data from the OpenAlex public snapshot (terabyte-scale dataset), normalizes nested records, and produces structured Parquet datasets for downstream analytics, trend analysis, and search applications.
 
-Some datasets (institutions, venues, concepts) are not deduplicated during ingestion and may contain repeated entities.
+Some datasets (institutions, venues, concepts, authors) are deduplicated after ingestion and each combined into one parquet file per dataset.
 
 ---
 
@@ -109,11 +109,12 @@ pip install -e .
 - pip
 - Internet access to download OpenAlex S3 snapshot
 - AWS S3 credentials are not required (public OpenAlex S3 bucket accessed via unsigned requests)
-- ~1TB+ free disk space recommended for full snapshot processing (varies by subset and filters)
+- ~300GB+ free disk space recommended for full snapshot processing (varies by subset and filters)
 - Dependencies:
   - boto3
   - botocore
   - pyarrow
+  - duckdb
   - pyyaml
   - ftfy
 
@@ -138,7 +139,6 @@ research-graph
 
 # Future Goals
 
-- Global dataset deduplication and Parquet compaction
 - Fast metadata search
 - Trend analysis tools
 - Citation graph analytics
