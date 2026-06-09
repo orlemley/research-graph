@@ -1,10 +1,10 @@
-from pathlib import Path
 import uuid
 import shutil
 import logging
 import pyarrow as pa
 import pyarrow.parquet as pq
 import re
+import os
 
 
 logger = logging.getLogger(__name__)
@@ -67,12 +67,48 @@ class BatchedParquetWriter:
             return
 
         self.writer.close()
-        shutil.move(self.temp_file, self.filename)
+        self.writer = None
+
+        if self.temp_file.exists():
+            os.replace(self.temp_file, self.filename)
 
 
 def extract_date(name):
     match = re.search(r"(\d{4}-\d{2}-\d{2})", name)
     return match.group(1) if match else None
+
+
+def get_sql_input_paths(name, sub_shards_root):
+    files = [
+        file for file in sub_shards_root.glob("*.parquet")
+        if extract_date(file.name) is not None
+    ]
+
+    if not files:
+        logger.warning(f"No {name} parquet files found")
+        return None
+
+    input_paths = [file.as_posix() for file in files]
+    input_paths_sql = ", ".join(f"'{path}'" for path in input_paths)
+
+    logger.info(f"Found {len(files):,} {name} shards")
+    
+    return input_paths_sql
+
+
+def get_sql_output_paths(output_root):
+    files = [file for file in output_root.rglob("*.parquet")]
+
+    if not files:
+        logger.warning(f"No output parquet files found")
+        return None
+
+    output_paths = [file.as_posix() for file in files]
+    output_paths_sql = ", ".join(f"'{path}'" for path in output_paths)
+
+    logger.info(f"Found {len(files):,} output files")
+    
+    return output_paths_sql
 
 
 def is_valid_parquet(path):
@@ -84,6 +120,12 @@ def is_valid_parquet(path):
         return True
     except Exception:
         return False
+    
+
+def reset_folder(path):
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir(parents=True, exist_ok=True)
     
 
 def cleanup_shard_outputs(paths):

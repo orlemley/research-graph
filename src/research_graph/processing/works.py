@@ -1,10 +1,10 @@
 import logging
+import time
 from research_graph.processing import schemas
 from research_graph.processing import paths
 from research_graph.processing import transforms
 from research_graph.processing import shards
 from research_graph.processing import writers
-import time
 
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ def process_works_shard(shard_key, context):
     output_paths = paths.works_output_paths(shard_name, config["shards_root"])
 
     works_writers = {
-    "works": writers.BatchedParquetWriter(output_paths["works"], schemas.WORKS_SCHEMA, compression = config["parquet_compression"]),
+    "works": writers.BatchedParquetWriter(output_paths["works"], (schemas.WORKS_SCHEMA).append(schemas.ABSTRACT_INVERTED_INDEX_FIELD) if config["include_abstract_inverted"] else schemas.WORKS_SCHEMA, compression = config["parquet_compression"]),
     "citation_edges": writers.BatchedParquetWriter(output_paths["citation_edges"], schemas.CITATION_EDGES_SCHEMA, compression = config["parquet_compression"]),
     "authorships": writers.BatchedParquetWriter(output_paths["authorships"], schemas.AUTHORSHIPS_SCHEMA, compression = config["parquet_compression"]),
     "affiliations": writers.BatchedParquetWriter(output_paths["affiliations"],schemas.AFFILIATIONS_SCHEMA, compression = config["parquet_compression"]),
@@ -50,7 +50,7 @@ def process_works_shard(shard_key, context):
             shard_papers_filtered += 1
             continue
         try:
-            works_writers["works"].write(transforms.get_works_row(paper))
+            works_writers["works"].write(transforms.get_works_row(paper, config["include_abstract_inverted"]))
             for row in transforms.get_citation_edges_rows(paper):
                 works_writers["citation_edges"].write(row)
             for row in transforms.get_authorships_rows(paper):
@@ -68,7 +68,7 @@ def process_works_shard(shard_key, context):
                 for row in transforms.get_selected_scores_rows(paper, selected_concepts):
                     works_writers["selected_scores"].write(row)
         except Exception as e:
-            logger.warning(f"Failed paper {paper.get('id')}: {e}")
+            logger.exception(f"Failed paper {paper.get('id')}: {e}")
             shard_papers_failed += 1
             continue
 

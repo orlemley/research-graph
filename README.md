@@ -1,12 +1,13 @@
 # Research Graph ETL Pipeline
+A Python data pipeline for streaming, filtering, transforming, and storing OpenAlex metadata as multi-file Parquet datasets.
 
-A Python data pipeline for downloading, transforming, and storing OpenAlex metadata as multi-file Parquet datasets.
+The pipeline streams OpenAlex snapshot shards directly from public S3 storage and can filter records during ingestion (for example by publication year or concept relevance), allowing users to construct focused analytical datasets without first storing the entire raw snapshot locally.
 
 Data source: [OpenAlex public snapshot](https://developers.openalex.org/download/download-to-machine)
 
 The pipeline extracts data from the OpenAlex public snapshot (terabyte-scale dataset), normalizes nested records, and produces structured Parquet datasets for downstream analytics, trend analysis, and search applications.
 
-Some datasets (institutions, venues, concepts, authors) are deduplicated after ingestion and each combined into one parquet file per dataset.
+Datasets are deduplicated after ingestion and copied into a separate tables folder.
 
 ---
 
@@ -36,6 +37,7 @@ The pipeline currently produces:
 | venues | Journal/conference metadata |
 | concepts | OpenAlex concept metadata |
 | scores | Work-concept scores |
+| selected_scoress | Subset of work-concept scores chosen in config |
 | authors | Author metadata |
 
 ---
@@ -49,8 +51,16 @@ src/
             runner.py
         pipelines/
             authors_pipeline.py
+            deduplication_pipeline.py
             works_pipeline.py
         processing/
+            deduplication/
+                duplicate_checks.py
+                id_deduplication.py
+                id_partitioning.py
+                row_deduplication.py
+                row_partitioning.py
+                tables_info.py
             io/
                 shards.py
                 writers.py
@@ -109,7 +119,7 @@ pip install -e .
 - pip
 - Internet access to download OpenAlex S3 snapshot
 - AWS S3 credentials are not required (public OpenAlex S3 bucket accessed via unsigned requests)
-- ~300GB+ free disk space recommended for full snapshot processing (varies by subset and filters)
+- ~500GB+ free disk space recommended for full snapshot processing (varies by subset and filters)
 - Dependencies:
   - boto3
   - botocore
@@ -118,10 +128,16 @@ pip install -e .
   - pyyaml
   - ftfy
 
-# Running the Pipeline
+# Running all Pipelines
 
 ```bash
 research-graph
+```
+
+# Running Selected Pipelines
+
+```bash
+research-graph --pipelines {works,authors,deduplication}
 ```
 
 ---
@@ -131,6 +147,8 @@ research-graph
 - Python
 - PyArrow
 - Parquet
+- SQL
+- DuckDB
 - boto3
 - OpenAlex
 - AWS S3
@@ -146,6 +164,8 @@ research-graph
 - DuckDB integration
 - Incremental pipeline orchestration improvements
 - Partitioned analytics-ready dataset generation
+- More filters available in config
+- Additional options for filtering at ingestion time
 
 ---
 

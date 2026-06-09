@@ -53,16 +53,15 @@ def invert_abstract(inverted):
     return text
 
 
-def get_works_row(paper):
+def get_works_row(paper, include_abstract_inverted):
     work_id = strip_openalex_id(paper.get('id', None))
     venue_id = strip_openalex_id((((paper.get('primary_location', {}) or {}).get('source', {}) or {}).get('id', None)))
     title = paper.get('title', None)
     abstract_inverted_index = paper.get('abstract_inverted_index', None)
-    return {
+    works_row = {
         'work_id': work_id,
         'publication_year': paper.get('publication_year', None),
-        'title': ftfy.fix_text(title),
-        'abstract_inverted_index': json.dumps(abstract_inverted_index) if abstract_inverted_index is not None else None,
+        'title': ftfy.fix_text(title) if title is not None else None,
         'abstract_text': invert_abstract(abstract_inverted_index),
         'cited_by_count': paper.get('cited_by_count', None),
         'referenced_works_count': paper.get('referenced_works_count', None),
@@ -71,6 +70,9 @@ def get_works_row(paper):
         'language': paper.get('language', None),
         'doi': paper.get('doi', None)
     }
+    if include_abstract_inverted:
+        works_row["abstract_inverted_index"] = json.dumps(abstract_inverted_index) if abstract_inverted_index is not None else None
+    return works_row
 
 
 def get_citation_edges_rows(paper):

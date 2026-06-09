@@ -17,6 +17,8 @@ def load_config():
     config["shards_root"] = config["base_path"] / config["data_path"] / config["shards_path"]
     config["tables_path"] = Path(config["tables_path"])
     config["tables_root"] = config["base_path"] / config["data_path"] / config["tables_path"]
+    config["temp_buckets_path"] = Path(config["temp_buckets_path"])
+    config["temp_buckets_root"] = config["base_path"] / config["data_path"] / config["temp_buckets_path"]
     return config
 
 

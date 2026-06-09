@@ -1,4 +1,6 @@
 import logging
+import time
+from botocore.exceptions import ResponseStreamingError, BotoCoreError
 from research_graph.processing import paths
 from research_graph.processing import shards
 from research_graph.processing import writers
@@ -51,11 +53,18 @@ def run(context):
                     writers.cleanup_shard_outputs(output_paths)
 
                 processed = None
-                try:
-                    processed = works.process_works_shard(shard_key, context)
-                except Exception:
-                    logger.exception(f"Failed shard {shard_key}")
-                    continue
+                delay = 1
+                for attempt in range(config["max_connection_retries"]):
+                    try:
+                        processed = works.process_works_shard(shard_key, context)
+                        break
+                    except (ResponseStreamingError, BotoCoreError) as e:
+                        if attempt == config["max_connection_retries"] - 1:
+                            logger.exception(f"Exhausted retries for {shard_key}")
+                            raise e 
+                        logger.warning(f"Retrying shard {shard_key} in {delay}s. Error: {e}")
+                        time.sleep(delay)
+                        delay *= 2
 
                 if processed["success"]:
                     works_count += 1

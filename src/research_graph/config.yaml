@@ -1,13 +1,16 @@
 aws_region: "us-east-1"
 openalex_bucket: "openalex"
+max_connection_retries: 3
 min_publication_year: 2005
 max_publication_year: 2024
 parquet_compression: "zstd"
 data_path: "data"
 shards_path: "shards"
 tables_path: "tables"
+temp_buckets_path: "temp_buckets"
 logs_path: "logs"
 concept_score_threshold: 0.3
+include_abstract_inverted: False
 selected_concepts:
   enabled: True
   get_all_concepts: False

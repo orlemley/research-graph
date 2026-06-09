@@ -18,11 +18,15 @@ data/
 .DS_Store
 Thumbs.db
 
-#IDE
+# IDE
 .vscode/
 
-#Egg
+# Egg
 *.egg-info/
 
 # Temp
 *.tmp
+
+# Env
+.env
+.env.*

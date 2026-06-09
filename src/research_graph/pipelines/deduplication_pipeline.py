@@ -1,97 +1,134 @@
 import logging
+import json
+import shutil
 import duckdb
-from research_graph.processing import writers
+from research_graph.processing import id_deduplication
+from research_graph.processing import id_partitioning
+from research_graph.processing import row_deduplication
+from research_graph.processing import row_partitioning
+from research_graph.processing import duplicate_checks
+from research_graph.processing import tables_info
 
 
 logger = logging.getLogger(__name__)
 
 
-REFERENCE_TABLES = {
-    "concepts": {
-        "id": "concept_id",
-        "name": "concept_name"},
-    "institutions": {
-        "id": "institution_id",
-        "name": "institution_name"},
-    "venues": {
-        "id": "venue_id",
-         "name": "venue_name"},
-    "authors": {
-        "id": "author_id",
-        "name": "author_name"},
-}
-
-
 def run(context):
     config = context.config
 
-    shards_root = config["shards_root"]
     tables_root = config["tables_root"]
-
+    temp_buckets_root = config["temp_buckets_root"]
+    
     tables_root.mkdir(parents=True, exist_ok=True)
+    temp_buckets_root.mkdir(parents=True, exist_ok=True)
 
     con = duckdb.connect()
-
     try:
-        for table_name, columns in REFERENCE_TABLES.items():
-            logger.info(f"Deduplicating {table_name}")
+        for name, values in tables_info.REFERENCE_TABLES.items():
+            id_column = values['id']
+            buckets_count = values['buckets_count']
+            output_root = tables_root / name
+            sub_buckets_root = temp_buckets_root / name
 
-            table_name_root = shards_root / table_name
+            expected = {
+                "id_column": id_column,
+                "sorting_column": values["sortby"],
+                "buckets_count": buckets_count
+            }
+            if(sub_buckets_root / "done.json").exists():
+                done_file = sub_buckets_root / "done.json"
+                with done_file.open() as f:
+                    actual = json.load(f)
+            else:
+                actual = None
 
-            files = [
-                file for file in table_name_root.glob("*.parquet")
-                if writers.extract_date(file.name) is not None
-            ]
+            shards_exist = True
+            if not ((sub_buckets_root / "done.json").exists() and (actual == expected)) and not (output_root / ".done").exists():
+                shards_exist = id_partitioning.partition_by_id(name, values, config, con)
+                logger.info(f"Completed {name} partitioning")
 
-            input_paths = [file.as_posix() for file in files]
-            input_paths_sql = ", ".join(f"'{path}'" for path in input_paths)
-            output_path = (tables_root / f"{table_name}.parquet").as_posix()
+            if(sub_buckets_root / "done.json").exists():
+                done_file = sub_buckets_root / "done.json"
+                with done_file.open() as f:
+                    actual = json.load(f)
+            else:
+                actual = None
 
-            if not files:
-                logger.warning(f"No parquet files found for table: {table_name}, skipping...")
+            if (sub_buckets_root / "done.json").exists() and (actual == expected):
+                for bucket in range(buckets_count):
+                    if not (output_root / f"{name}_{bucket}.parquet").exists():
+                        id_deduplication.deduplicate_by_id(bucket, name, values, config, con)
+
+                logger.info(f"Checking for duplicate {id_column}s across all {name} outputs")
+                duplicate_count = duplicate_checks.check_duplicate_ids(output_root, id_column, con)
+                if duplicate_count > 0:
+                    logger.error(f"Found {duplicate_count:,} duplicate {id_column}s in {name} output")
+                    raise ValueError(f"Found {duplicate_count:,} duplicate {id_column}s in {name} output")
+                else:
+                    logger.info(f"Found {duplicate_count:,} duplicate {id_column}s in {name} output")
+
+                (output_root / ".done").touch(exist_ok=True)
+                logger.info(f"Completed all deduplication for {name} table")
+                logger.info(f"Deleting {name} temporary buckets folder")
+                shutil.rmtree(sub_buckets_root)
+            elif not shards_exist:
+                logger.warning(f"Skipping {name} table deduplication, no shards exist")
                 continue
+            elif (output_root / ".done").exists():
+                pass
+            else:
+                logger.error(f"Partitioning not complete for {name} table")
+                raise
             
-            id_column = columns["id"]
-            name_column = columns["name"]
+        for name, buckets_count in tables_info.RELATIONSHIP_TABLES.items():
+            output_root = tables_root / name
+            sub_buckets_root = temp_buckets_root / name
 
-            query = f"""
-            COPY (
-                SELECT * EXCLUDE(rn)
-                FROM (
-                    SELECT
-                        *,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY {id_column}
-                            ORDER BY 
-                                filename DESC,
-                                {name_column} DESC
-                        ) AS rn
-                    FROM read_parquet(
-                        [{input_paths_sql}],
-                        filename=true,
-                        union_by_name=true
-                    )
-                )
-                WHERE rn = 1
-            )
-            TO '{output_path}'
-            (
-                FORMAT PARQUET,
-                COMPRESSION ZSTD
-            )
-            """
+            expected = {"buckets_count": buckets_count}
+            if(sub_buckets_root / "done.json").exists():
+                done_file = sub_buckets_root / "done.json"
+                with done_file.open() as f:
+                    actual = json.load(f)
+            else:
+                actual = None
 
-            con.execute(query)
+            shards_exist = True
+            if not ((sub_buckets_root / "done.json").exists() and (actual == expected)) and not (output_root / ".done").exists():
+                shards_exist = row_partitioning.partition_by_row(name, buckets_count, config, con)
+                logger.info(f"Completed {name} partitioning")
 
-            row_count = con.execute(f"""
-                SELECT COUNT(*)
-                FROM read_parquet('{output_path}')
-            """).fetchone()[0]
+            if(sub_buckets_root / "done.json").exists():
+                done_file = sub_buckets_root / "done.json"
+                with done_file.open() as f:
+                    actual = json.load(f)
+            else:
+                actual = None
 
-            if row_count == 0:
-                raise ValueError(f"Deduplicated output for {table_name} is empty")
+            if (sub_buckets_root / "done.json").exists() and (actual == expected):
+                for bucket in range(buckets_count):
+                    if not (output_root / f"{name}_{bucket}.parquet").exists():
+                        row_deduplication.deduplicate_by_row(bucket, name, config, con)
 
-            logger.info(f"Wrote {row_count:,} rows to {output_path}")
+                logger.info(f"Checking for duplicate rows across all {name} outputs")
+                duplicate_count = duplicate_checks.check_duplicate_rows(output_root, con)
+                if duplicate_count > 0:
+                    logger.error(f"Found {duplicate_count:,} duplicate rows in {name} output")
+                    raise ValueError(f"Found {duplicate_count:,} duplicate rows in {name} output")
+                else:
+                    logger.info(f"Found {duplicate_count:,} duplicate rows in {name} output")
+
+                (output_root / ".done").touch(exist_ok=True)
+                logger.info(f"Completed all deduplication for {name} table")
+                logger.info(f"Deleting {name} temporary buckets folder")
+                shutil.rmtree(sub_buckets_root)
+            elif not shards_exist:
+                logger.warning(f"Skipping {name} table deduplication, no shards exist")
+                continue
+            elif (output_root / ".done").exists():
+                pass
+            else:
+                logger.error(f"Partitioning not complete for {name} table")
+                raise
 
     finally:
         con.close()

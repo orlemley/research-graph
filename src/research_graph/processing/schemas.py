@@ -5,7 +5,6 @@ WORKS_SCHEMA = pa.schema([
     pa.field('work_id', pa.string()),
     pa.field('publication_year', pa.int32()),
     pa.field('title', pa.string()),
-    pa.field('abstract_inverted_index', pa.string()),
     pa.field('abstract_text', pa.string()),
     pa.field('cited_by_count', pa.int32()),
     pa.field('referenced_works_count', pa.int32()),
@@ -66,3 +65,4 @@ AUTHORS_SCHEMA = pa.schema([
     pa.field('cited_by_count', pa.int32()),
     pa.field('h_index', pa.int32())
 ])
+ABSTRACT_INVERTED_INDEX_FIELD = pa.field('abstract_inverted_index', pa.string())
