@@ -1,6 +1,7 @@
 import logging
 import json
 import shutil
+import psutil
 import duckdb
 from research_graph.processing import id_deduplication
 from research_graph.processing import id_partitioning
@@ -22,9 +23,13 @@ def run(context):
     tables_root.mkdir(parents=True, exist_ok=True)
     temp_buckets_root.mkdir(parents=True, exist_ok=True)
 
-    con = duckdb.connect()
-    try:
-        for name, values in tables_info.REFERENCE_TABLES.items():
+    proc = psutil.Process()
+
+    
+    for name, values in tables_info.REFERENCE_TABLES.items():
+        con = duckdb.connect()
+
+        try:
             id_column = values['id']
             buckets_count = values['buckets_count']
             output_root = tables_root / name
@@ -44,8 +49,14 @@ def run(context):
 
             shards_exist = True
             if not ((sub_buckets_root / "done.json").exists() and (actual == expected)) and not (output_root / ".done").exists():
+                rss_before = proc.memory_info().rss / 1024**3
                 shards_exist = id_partitioning.partition_by_id(name, values, config, con)
-                logger.info(f"Completed {name} partitioning")
+                if shards_exist:
+                    logger.info(f"Completed {name} partitioning")
+                    rss_after = proc.memory_info().rss / 1024**3
+                    logger.info(f"rss_before={rss_before:.2f}GB")
+                    logger.info(f"rss_after={rss_after:.2f}GB")
+    
 
             if(sub_buckets_root / "done.json").exists():
                 done_file = sub_buckets_root / "done.json"
@@ -57,7 +68,13 @@ def run(context):
             if (sub_buckets_root / "done.json").exists() and (actual == expected):
                 for bucket in range(buckets_count):
                     if not (output_root / f"{name}_{bucket}.parquet").exists():
-                        id_deduplication.deduplicate_by_id(bucket, name, values, config, con)
+                        rss_before = proc.memory_info().rss / 1024**3
+                        rows_per_second = id_deduplication.deduplicate_by_id(bucket, name, values, config, con)
+                        rss_after = proc.memory_info().rss / 1024**3
+                        logger.info(f"bucket={bucket}")
+                        logger.info(f"{rows_per_second:,.2f} rows/sec")
+                        logger.info(f"rss_before={rss_before:.2f}GB")
+                        logger.info(f"rss_after={rss_after:.2f}GB")
 
                 logger.info(f"Checking for duplicate {id_column}s across all {name} outputs")
                 duplicate_count = duplicate_checks.check_duplicate_ids(output_root, id_column, con)
@@ -78,9 +95,15 @@ def run(context):
                 pass
             else:
                 logger.error(f"Partitioning not complete for {name} table")
-                raise
+                raise RuntimeError(f"Partitioning not complete for {name} table")
             
-        for name, buckets_count in tables_info.RELATIONSHIP_TABLES.items():
+        finally:
+            con.close()
+            
+    for name, buckets_count in tables_info.RELATIONSHIP_TABLES.items():
+        con = duckdb.connect()
+
+        try:
             output_root = tables_root / name
             sub_buckets_root = temp_buckets_root / name
 
@@ -94,8 +117,13 @@ def run(context):
 
             shards_exist = True
             if not ((sub_buckets_root / "done.json").exists() and (actual == expected)) and not (output_root / ".done").exists():
+                rss_before = proc.memory_info().rss / 1024**3
                 shards_exist = row_partitioning.partition_by_row(name, buckets_count, config, con)
-                logger.info(f"Completed {name} partitioning")
+                if shards_exist:
+                    logger.info(f"Completed {name} partitioning")
+                    rss_after = proc.memory_info().rss / 1024**3
+                    logger.info(f"rss_before={rss_before:.2f}GB")
+                    logger.info(f"rss_after={rss_after:.2f}GB")
 
             if(sub_buckets_root / "done.json").exists():
                 done_file = sub_buckets_root / "done.json"
@@ -107,7 +135,13 @@ def run(context):
             if (sub_buckets_root / "done.json").exists() and (actual == expected):
                 for bucket in range(buckets_count):
                     if not (output_root / f"{name}_{bucket}.parquet").exists():
-                        row_deduplication.deduplicate_by_row(bucket, name, config, con)
+                        rss_before = proc.memory_info().rss / 1024**3
+                        rows_per_second = row_deduplication.deduplicate_by_row(bucket, name, config, con)
+                        rss_after = proc.memory_info().rss / 1024**3
+                        logger.info(f"bucket={bucket}")
+                        logger.info(f"{rows_per_second:,.2f} rows/sec")
+                        logger.info(f"rss_before={rss_before:.2f}GB")
+                        logger.info(f"rss_after={rss_after:.2f}GB")
 
                 logger.info(f"Checking for duplicate rows across all {name} outputs")
                 duplicate_count = duplicate_checks.check_duplicate_rows(output_root, con)
@@ -128,7 +162,9 @@ def run(context):
                 pass
             else:
                 logger.error(f"Partitioning not complete for {name} table")
-                raise
+                raise RuntimeError(f"Partitioning not complete for {name} table")
+            
+            shutil.rmtree(temp_buckets_root)
 
-    finally:
-        con.close()
+        finally:
+            con.close()

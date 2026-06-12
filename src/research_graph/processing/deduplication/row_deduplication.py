@@ -1,5 +1,5 @@
 import logging
-import shutil
+import time
 import uuid
 import os
 
@@ -25,7 +25,7 @@ def deduplicate_by_row(bucket, name, config, con):
 
     query = (f"""
         COPY (
-            SELECT DISTINCT *
+            SELECT DISTINCT * EXCLUDE (bucket)
             FROM read_parquet(
                 '{sub_buckets_root}/bucket={bucket}/*.parquet'
             )
@@ -36,6 +36,8 @@ def deduplicate_by_row(bucket, name, config, con):
             COMPRESSION ZSTD
         )
     """)
+
+    start_time = time.perf_counter()
 
     logger.info(f"Deduplicating {name} bucket {bucket}")
     con.execute(query)
@@ -48,6 +50,10 @@ def deduplicate_by_row(bucket, name, config, con):
     if row_count == 0:
         logger.error(f"Deduplicated {name}_{bucket} output is empty")
         raise ValueError(f"Deduplicated {name}_{bucket} output is empty")
+    
+    elapsed = time.perf_counter() - start_time
+
+    rows_per_second = row_count / elapsed if elapsed > 0 else 0
 
     duplicate_count = con.execute(f"""
         SELECT COUNT(*)
@@ -67,3 +73,5 @@ def deduplicate_by_row(bucket, name, config, con):
 
     os.replace(temp_output, output_name)
     logger.info(f"Wrote {row_count:,} deduplicated {name} rows to {name}_{bucket}")
+
+    return rows_per_second

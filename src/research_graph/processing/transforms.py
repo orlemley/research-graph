@@ -2,6 +2,10 @@ import json
 import html
 import unicodedata
 import ftfy
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_concepts_dict(paper):
@@ -32,6 +36,9 @@ def invert_abstract(inverted):
         word = unicodedata.normalize("NFKC", word)
 
         for position in positions:
+            if position in tokens:
+                logger.warning(f"Multiple words found for position {position} in abstract")
+                pass
             tokens[position] = word
 
     text = [tokens[i] for i in sorted(tokens)]

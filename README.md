@@ -126,6 +126,7 @@ pip install -e .
   - pyarrow
   - duckdb
   - pyyaml
+  - psutil
   - ftfy
 
 # Running all Pipelines
