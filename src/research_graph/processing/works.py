@@ -23,7 +23,7 @@ def process_works_shard(shard_key, context):
     "authorships": writers.BatchedParquetWriter(output_paths["authorships"], schemas.AUTHORSHIPS_SCHEMA, compression = config["parquet_compression"]),
     "affiliations": writers.BatchedParquetWriter(output_paths["affiliations"],schemas.AFFILIATIONS_SCHEMA, compression = config["parquet_compression"]),
     "institutions": writers.BatchedParquetWriter(output_paths["institutions"], schemas.INSTITUTIONS_SCHEMA, compression = config["parquet_compression"]),
-    "venues": writers.BatchedParquetWriter(output_paths["venues"], schemas.VENUES_SCHEMA, compression = config["parquet_compression"]),
+    "sources": writers.BatchedParquetWriter(output_paths["sources"], schemas.SOURCES_SCHEMA, compression = config["parquet_compression"]),
     "concepts": writers.BatchedParquetWriter(output_paths["concepts"], schemas.CONCEPTS_SCHEMA, compression = config["parquet_compression"]),
     "scores": writers.BatchedParquetWriter(output_paths["scores"], schemas.SCORES_SCHEMA, compression = config["parquet_compression"])
     }
@@ -59,7 +59,7 @@ def process_works_shard(shard_key, context):
                 works_writers["affiliations"].write(row)
             for row in transforms.get_institutions_rows(paper):
                 works_writers["institutions"].write(row)
-            works_writers["venues"].write(transforms.get_venues_row(paper))
+            works_writers["sources"].write(transforms.get_sources_row(paper))
             for row in transforms.get_concepts_rows(paper, config["concept_score_threshold"]):
                 works_writers["concepts"].write(row)
             for row in transforms.get_scores_rows(paper, config["concept_score_threshold"]):
@@ -70,6 +70,22 @@ def process_works_shard(shard_key, context):
         except Exception as e:
             logger.exception(f"Failed paper {paper.get('id')}: {e}")
             shard_papers_failed += 1
+            failure_path = config["shards_root"] / f"{shard_name}.works_failures.jsonl"
+            try:
+                writers.write_failure_record(
+                    failure_path, 
+                    {
+                        "shard_key": shard_key,
+                        "shard_name": shard_name,
+                        "stage": "transform",
+                        "work_id": paper.get("id", None),
+                        "error_type": type(e).__name__,
+                        "error": str(e),
+                    }
+                )
+            except Exception:
+                logger.exception(f"Failed to write paper failure record")
+                raise RuntimeError
             continue
 
         shard_papers_processed += 1

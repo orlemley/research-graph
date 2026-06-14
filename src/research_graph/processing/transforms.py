@@ -16,6 +16,17 @@ def strip_openalex_id(id):
     return id.split("/")[-1] if isinstance(id, str) else None
 
 
+def basic_text_clean(raw_text):
+    if raw_text is None:
+        return None
+    
+    text = html.unescape(raw_text)
+    text = ftfy.fix_text(text) #Fixes corrupted unicode
+    text = unicodedata.normalize("NFC", text)
+    text = text.strip()
+
+    return text
+
 #Dictionary approach is n*log(n) time because of sort. List is faster but "risky" in case inverted index contains very high incorrect position
 def invert_abstract(inverted):
     if not inverted or not any(inverted.values()):
@@ -32,50 +43,53 @@ def invert_abstract(inverted):
     tokens = {}
     
     for word, positions in inverted.items():
-        word = html.unescape(word)
-        word = unicodedata.normalize("NFKC", word)
-
-        for position in positions:
+        for position in positions or []:
             if position in tokens:
-                logger.warning(f"Multiple words found for position {position} in abstract")
-                pass
+                logger.warning(f"Multiple words found for position {position} in abstract; keeping first")
+                continue
             tokens[position] = word
 
-    text = [tokens[i] for i in sorted(tokens)]
-    text = " ".join(text)
+    if not tokens:
+        return ""
 
-    #Fixes corrupted unicode
-    text = ftfy.fix_text(text)
+    text = " ".join(tokens[i] for i in sorted(tokens))
 
-    for prefix in ["<JATS", "</JATS", "<jats:", "</jats:"]:
-        while prefix in text:
-            start = text.find(prefix)
-            end = text.find(">", start)
-
-            if end == -1:
-                break
-
-            text = text[:start] + text[end + 1:]
+    text = basic_text_clean(text) or ""
 
     return text
 
 
 def get_works_row(paper, include_abstract_inverted):
     work_id = strip_openalex_id(paper.get('id', None))
-    venue_id = strip_openalex_id((((paper.get('primary_location', {}) or {}).get('source', {}) or {}).get('id', None)))
-    title = paper.get('title', None)
+    source_id = strip_openalex_id((((paper.get('primary_location', {}) or {}).get('source', {}) or {}).get('id', None)))
+    raw_title = paper.get('title', None)
+    title = basic_text_clean(raw_title) if raw_title is not None else None
     abstract_inverted_index = paper.get('abstract_inverted_index', None)
+    abstract_text = invert_abstract(abstract_inverted_index)
     works_row = {
         'work_id': work_id,
         'publication_year': paper.get('publication_year', None),
-        'title': ftfy.fix_text(title) if title is not None else None,
-        'abstract_text': invert_abstract(abstract_inverted_index),
+        'publication_date': paper.get('publication_date', None),
+        'title': title,
+        'abstract_text': abstract_text,
+        'title_length': len(title) if title else 0,
+        'abstract_length': len(abstract_text) if abstract_text else 0,
         'cited_by_count': paper.get('cited_by_count', None),
         'referenced_works_count': paper.get('referenced_works_count', None),
-        'venue_id': venue_id,
+        'fwci': paper.get('fwci', None),
+        'source_id': source_id,
         'work_type': paper.get('type', None),
+        'is_retracted': paper.get('is_retracted', None),
+        'is_paratext': paper.get('is_paratext', None),
         'language': paper.get('language', None),
-        'doi': paper.get('doi', None)
+        'doi': paper.get('doi', None),
+        'ids': json.dumps(paper.get('ids', {}) or {}),
+        'is_open_access': (paper.get('open_access', {}) or {}).get('is_oa', None),
+        'open_access_url': (paper.get('open_access', {}) or {}).get('oa_url', None),
+        'landing_page_url': (((paper.get('primary_location', {}) or {}).get('landing_page_url', None))),
+        'pdf_url': (((paper.get('primary_location', {}) or {}).get('pdf_url', None))),
+        'created_date': paper.get('created_date', None),
+        'updated_date': paper.get('updated_date', None)
     }
     if include_abstract_inverted:
         works_row["abstract_inverted_index"] = json.dumps(abstract_inverted_index) if abstract_inverted_index is not None else None
@@ -84,7 +98,7 @@ def get_works_row(paper, include_abstract_inverted):
 
 def get_citation_edges_rows(paper):
     citation_edges_rows = []
-    referenced_works = paper.get('referenced_works', [])
+    referenced_works = paper.get('referenced_works', []) or []
     citing_work_id = strip_openalex_id(paper.get('id', None))
     for referenced_work_id in referenced_works:
         citation_edges_row = {
@@ -98,12 +112,13 @@ def get_citation_edges_rows(paper):
 def get_authorships_rows(paper):
     authorships_rows = []
     work_id = strip_openalex_id(paper.get('id', None))
-    for authorship in (paper.get('authorships', []) or []):
+    for index, authorship in enumerate(paper.get('authorships', []) or []):
         author_id = strip_openalex_id((authorship.get('author', {}) or {}).get('id', None))
         authorship_row = {
             'work_id': work_id,
             'author_id': author_id,
             'author_position': authorship.get('author_position', None),
+            'author_sequence': index,
             'is_corresponding': authorship.get('is_corresponding', None)
         }
         authorships_rows.append(authorship_row)
@@ -131,7 +146,7 @@ def get_institutions_rows(paper):
     for authorship in (paper.get('authorships', []) or []):
         for institution in (authorship.get('institutions', []) or []):
             institution_id = strip_openalex_id(institution.get('id', None))
-            institution_name = institution.get('display_name', None)
+            institution_name = basic_text_clean(institution.get('display_name', None))
             institution_country = institution.get('country_code', None)
             institutions_row = {
                 'institution_id': institution_id,
@@ -142,16 +157,27 @@ def get_institutions_rows(paper):
     return institutions_rows
 
 
-def get_venues_row(paper):
-    venue_id = strip_openalex_id((((paper.get('primary_location', {}) or {}).get('source', {}) or {}).get('id', None)))
-    venue_name = (((((paper.get('primary_location', {}) or {})).get('source', {}) or {}))).get('display_name', None)
-    venue_type = (((((paper.get('primary_location', {}) or {})).get('source', {}) or {}))).get('type', None)
-    venues_row = {
-        'venue_id': venue_id,
-        'venue_name': venue_name,
-        'venue_type': venue_type
+def get_sources_row(paper):
+    source = (((paper.get('primary_location', {}) or {})).get('source', {}) or {})
+    if not source:
+        return None
+    source_id = strip_openalex_id(source.get('id', None))
+    source_name = basic_text_clean(source.get('display_name', None))
+    source_type = source.get('type', None)
+    linking_issn = source.get('issn_l', None)
+    issn_list = json.dumps(source.get('issn', []) or [])
+    host_organization = strip_openalex_id(source.get('host_organization', None))
+    is_oa = source.get('is_oa', None)
+    sources_row = {
+        'source_id': source_id,
+        'source_name': source_name,
+        'source_type': source_type,
+        'linking_issn': linking_issn,
+        'issn_list': issn_list,
+        'host_organization_id': host_organization,
+        'is_oa': is_oa
     }
-    return venues_row
+    return sources_row
 
 
 def get_concepts_rows(paper, concept_score_threshold):
@@ -162,7 +188,7 @@ def get_concepts_rows(paper, concept_score_threshold):
             concept_id = strip_openalex_id(concept.get('id', None))
             concepts_row = {
                 'concept_id': concept_id,
-                'concept_name': concept.get('display_name', None),
+                'concept_name': basic_text_clean(concept.get('display_name', None)),
                 'concept_level': concept.get('level', None),
             }
             concepts_rows.append(concepts_row)
@@ -192,11 +218,11 @@ def get_selected_scores_rows(paper,selected_concepts):
     if selected_concepts["get_all_concepts"]:
         for concept_id in concepts_dict:
             selected_scores_row = {
-            'work_id': work_id,
-            'concept_id': concept_id,
-            'concept_score': concepts_dict.get(concept_id, 0.0)
-        }
-        selected_scores_rows.append(selected_scores_row)
+                'work_id': work_id,
+                'concept_id': concept_id,
+                'concept_score': concepts_dict.get(concept_id, 0.0)
+            }
+            selected_scores_rows.append(selected_scores_row)
     else:
         for concept_id in selected_concepts['concept_ids']:
             selected_scores_row = {
@@ -212,7 +238,7 @@ def get_selected_scores_rows(paper,selected_concepts):
 def get_authors_row(author):
     return {
         'author_id': strip_openalex_id(author.get('id', None)),
-        'author_name': author.get('display_name', None),
+        'author_name': basic_text_clean(author.get('display_name', None)),
         'first_publication_year': author.get('first_publication_year', None),
         'last_publication_year': author.get('last_publication_year', None),
         'works_count': author.get('works_count', None),

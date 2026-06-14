@@ -5,6 +5,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import re
 import os
+import json
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,9 @@ class BatchedParquetWriter:
 
     
     def write(self, row):
+        if row is None:
+            return
+        
         self.buffer.append(row)
 
         if len(self.buffer) >= self.batch_size:
@@ -78,6 +82,12 @@ def extract_date(name):
     return match.group(1) if match else None
 
 
+#Do not use on untrusted data
+def get_sql_list(list):
+    sql_list = ", ".join(f"'{item}'" for item in list)
+    return sql_list
+
+
 def get_sql_input_paths(name, sub_shards_root):
     files = [
         file for file in sub_shards_root.glob("*.parquet")
@@ -122,10 +132,27 @@ def is_valid_parquet(path):
         return False
     
 
+def check_required_parquet_files(root, name):
+    if not root.exists():
+        raise FileNotFoundError(f"Required input folder does not exist: {name} at {root}")
+
+    files = list(root.rglob("*.parquet"))
+    if not files:
+        raise FileNotFoundError(f"Required input folder has no parquet files: {name} at {root}")
+
+    return files
+    
+
 def reset_folder(path):
     if path.exists():
         shutil.rmtree(path)
     path.mkdir(parents=True, exist_ok=True)
+
+
+def write_failure_record(path, record):
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record))
+        f.write("\n")
     
 
 def cleanup_shard_outputs(paths):

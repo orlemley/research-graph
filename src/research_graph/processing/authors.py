@@ -1,10 +1,12 @@
 import logging
+import time
+import uuid
+import json
 from research_graph.processing import schemas
 from research_graph.processing import paths
 from research_graph.processing import transforms
 from research_graph.processing import shards
 from research_graph.processing import writers
-import time
 
 
 logger = logging.getLogger(__name__)
@@ -29,8 +31,24 @@ def process_authors_shard(shard_key, context):
         try:
             authors_writer.write(transforms.get_authors_row(author))
         except Exception as e:
-            logger.warning(f"Failed author {author.get('id')}: {e}")
+            logger.exception(f"Failed author {author.get('id')}: {e}")
             shard_authors_failed += 1
+            failure_path = config["shards_root"] / f"{shard_name}.authors_failures.jsonl"
+            try:
+                writers.write_failure_record(
+                    failure_path, 
+                    {
+                        "shard_key": shard_key,
+                        "shard_name": shard_name,
+                        "stage": "transform",
+                        "work_id": author.get("id", None),
+                        "error_type": type(e).__name__,
+                        "error": str(e),
+                    }
+                )
+            except Exception:
+                logger.exception(f"Failed to write author failure record")
+                raise RuntimeError
             continue
 
         shard_authors_processed += 1

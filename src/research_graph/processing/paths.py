@@ -4,7 +4,7 @@ WORKS_DATASETS = (
     "authorships",
     "affiliations",
     "institutions",
-    "venues",
+    "sources",
     "concepts",
     "scores",
     "selected_scores"

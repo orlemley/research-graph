@@ -9,9 +9,9 @@ REFERENCE_TABLES = {
         "sortby": "institution_name",
         "buckets_count": 8
         },
-    "venues": {
-        "id": "venue_id",
-         "sortby": "venue_name",
+    "sources": {
+        "id": "source_id",
+         "sortby": "source_name",
          "buckets_count": 8
          },
     "authors": {
