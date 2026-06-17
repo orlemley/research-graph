@@ -13,7 +13,7 @@ def deduplicate_by_id(bucket, name, values, config, con):
 
     if not (sub_buckets_root / f"bucket={bucket}").exists():
         logger.error(f"{name} missing bucket={bucket}")
-        raise
+        raise RuntimeError(f"{name} missing bucket={bucket}")
 
     tables_root = config["tables_root"]
     output_root = tables_root / name

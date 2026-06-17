@@ -19,13 +19,16 @@ def partition_by_row(name, buckets_count, config, con):
     if not input_paths_sql:
         logger.warning(f"No input shards found for {name} table, proceeding to next table...")
         return False
+    
+    snapshot_date_regex = r"([0-9]{4}-[0-9]{2}-[0-9]{2})"
 
     writers.reset_folder(sub_buckets_root)
     
     query = f"""
         COPY (
             SELECT
-                *,
+                * EXCLUDE (filename),
+                regexp_extract(filename, '{snapshot_date_regex}', 1) AS snapshot_date,
                 abs(hash(*columns(*))) % {buckets_count} AS bucket
             FROM read_parquet(
                 [{input_paths_sql}],
@@ -44,7 +47,7 @@ def partition_by_row(name, buckets_count, config, con):
     con.execute(query)
 
     done_file = sub_buckets_root / "done.json"
-    with done_file.open("w") as f:
+    with done_file.open("w", encoding="utf-8") as f:
         json.dump({"buckets_count": buckets_count}, f, indent=2)
         
     return True
