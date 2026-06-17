@@ -10,7 +10,7 @@ def main():
     parser.add_argument(
         "--pipelines",
         nargs="+",
-        choices=["works", "authors", "deduplication"],
+        choices=["works", "authors", "deduplication", "graph_filtering"],
         help="Pipelines to run"
     )
     args = parser.parse_args()
