@@ -19,6 +19,8 @@ def load_config():
     config["tables_root"] = config["base_path"] / config["data_path"] / config["tables_path"]
     config["temp_buckets_path"] = Path(config["temp_buckets_path"])
     config["temp_buckets_root"] = config["base_path"] / config["data_path"] / config["temp_buckets_path"]
+    config["filtered_tables_path"] = Path(config["filtered_tables_path"])
+    config["filtered_tables_root"] = config["base_path"] / config["data_path"] / config["filtered_tables_path"]
     return config
 
 

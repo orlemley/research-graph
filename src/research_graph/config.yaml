@@ -8,6 +8,7 @@ data_path: "data"
 shards_path: "shards"
 tables_path: "tables"
 temp_buckets_path: "temp_buckets"
+filtered_tables_path: "filtered_tables"
 logs_path: "logs"
 concept_score_threshold: 0.3
 include_abstract_inverted: False
@@ -20,8 +21,15 @@ selected_concepts:
     - "C2776899757"
     - "C105795698"
     - "C2522767166"
+graph_filter_concepts:
+  - "C119857082"
+  - "C154945302"
+  - "C2776899757"
+  - "C105795698"
+  - "C2522767166"
 temp_cleanup: True
 enabled_pipelines:
   - works
   - authors
   - deduplication
+  - graph_filtering
