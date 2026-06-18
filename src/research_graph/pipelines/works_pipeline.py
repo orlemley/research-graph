@@ -2,9 +2,9 @@ import logging
 import time
 from botocore.exceptions import ResponseStreamingError, BotoCoreError
 from research_graph.processing import paths
-from research_graph.processing import shards
-from research_graph.processing import writers
-from research_graph.processing import works
+from research_graph.processing.io import shards
+from research_graph.processing.io import writers
+from research_graph.processing.ingestion import works
 
 
 logger = logging.getLogger(__name__)

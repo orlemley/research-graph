@@ -1,5 +1,5 @@
 import logging
-from research_graph.processing import writers
+from research_graph.processing.io import writers
 
 
 logger = logging.getLogger(__name__)
