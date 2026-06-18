@@ -68,7 +68,9 @@ def create_works_metrics_stage_1(concepts, config, con):
             FROM
                 (
                     SELECT work_id
-                    FROM read_parquet('{filtered_works_root}/*.parquet')
+                    FROM read_parquet(
+                        '{filtered_works_root}/*.parquet'
+                    )
                 ) filtered_work_ids
                 LEFT JOIN in_counts
                 ON filtered_work_ids.work_id = in_counts.work_id

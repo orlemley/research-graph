@@ -1,6 +1,7 @@
 import logging
 import duckdb
 from research_graph.processing.metrics import works_metrics
+from research_graph.processing.metrics import authors_metrics
 
 
 logger = logging.getLogger(__name__)
@@ -14,10 +15,15 @@ def run(context):
     metrics_root.mkdir(parents=True, exist_ok=True)
 
     works_metrics_root = metrics_root / "works_metrics"
+    authors_metrics_root = metrics_root / "authors_metrics"
 
     works_metrics_path_1 = works_metrics_root / "works_metrics_stage_1.parquet"
     works_metrics_path_2 = works_metrics_root / "works_metrics_stage_2.parquet"
-    works_metrics_path_final = works_metrics_root / "works_metrics_final_stage.parquet"
+    works_metrics_path_final = works_metrics_root / "works_metrics.parquet"
+
+    authors_metrics_path_1 = authors_metrics_root / "authors_metrics_stage_1.parquet"
+    authors_metrics_path_2 = authors_metrics_root / "authors_metrics_stage_2.parquet"
+    authors_metrics_path_final = authors_metrics_root / "authors_metrics.parquet"
 
     concepts = config["graph_filter_concepts"]
 
@@ -32,7 +38,7 @@ def run(context):
             logger.info("Starting works metrics stage 2")
             works_metrics.create_works_metrics_stage_2(config, con)
             logger.info("Finished works metrics stage 2")
-        elif not works_metrics_path_1.exists() and not works_metrics_path_2.exists():
+        elif not works_metrics_path_1.exists() and not works_metrics_path_2.exists() and not works_metrics_path_final.exists():
             logger.error("Cannot process works metrics stage 2 because stage 1 doesn't exist yet")
             raise RuntimeError("Cannot process works metrics stage 2 because stage 1 doesn't exist yet")
         
@@ -43,3 +49,24 @@ def run(context):
         elif not works_metrics_path_2.exists() and not works_metrics_path_final.exists():
             logger.error("Cannot process works metrics final stage because stage 2 doesn't exist yet")
             raise RuntimeError("Cannot process works metrics final stage because stage 2 doesn't exist yet")
+        
+        if not authors_metrics_path_1.exists() and not (authors_metrics_path_2.exists() or authors_metrics_path_final.exists()):
+            logger.info("Starting authors metrics stage 1")
+            authors_metrics.create_authors_metrics_stage_1(config, con)
+            logger.info("Finished authors metrics stage 1")
+
+        if authors_metrics_path_1.exists() and not authors_metrics_path_2.exists() and not authors_metrics_path_final.exists():
+            logger.info("Starting authors metrics stage 2")
+            authors_metrics.create_authors_metrics_stage_2(config, con)
+            logger.info("Finished authors metrics stage 2")
+        elif not authors_metrics_path_1.exists() and not authors_metrics_path_2.exists() and not authors_metrics_path_final.exists():
+            logger.error("Cannot process authors metrics stage 2 because stage 1 doesn't exist yet")
+            raise RuntimeError("Cannot process authors metrics stage 2 because stage 1 doesn't exist yet")
+        
+        if authors_metrics_path_2.exists() and not authors_metrics_path_final.exists():
+            logger.info("Starting authors metrics final stage")
+            authors_metrics.create_authors_metrics_final_stage(config, con)
+            logger.info("Finished authors metrics final stage")
+        elif not authors_metrics_path_2.exists() and not authors_metrics_path_final.exists():
+            logger.error("Cannot process authors metrics final stage because stage 2 doesn't exist yet")
+            raise RuntimeError("Cannot process authors metrics final stage because stage 2 doesn't exist yet")
