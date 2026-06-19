@@ -7,7 +7,7 @@ import os
 logger = logging.getLogger(__name__)
 
 
-def deduplicate_by_id(bucket, name, values, config, con):
+def deduplicate_by_key(bucket, name, values, config, con):
     temp_buckets_root = config["temp_buckets_root"]
     sub_buckets_root = temp_buckets_root / name
 
@@ -20,8 +20,12 @@ def deduplicate_by_id(bucket, name, values, config, con):
 
     output_root.mkdir(parents=True, exist_ok=True)
 
-    id_column = values['id']
-    sorting_column = values['sortby']
+    deduplication_key_sql = values['deduplication_key_sql']
+    order_by_sql = values['order_by_sql']
+
+    columns = [col.strip() for col in deduplication_key_sql.split(",")]
+    key_not_null_sql = " AND ".join(f"{col} IS NOT NULL" for col in columns)
+    key_has_null_sql = " OR ".join(f"{column} IS NULL" for column in columns)
 
     output_name = output_root / f"{name}_{bucket}.parquet"
     temp_output = output_name.parent / f"{output_name.stem}.{uuid.uuid4().hex[:8]}.tmp.parquet"
@@ -32,11 +36,10 @@ def deduplicate_by_id(bucket, name, values, config, con):
             FROM read_parquet(
                 '{sub_buckets_root}/bucket={bucket}/*.parquet'
             )
+            WHERE {key_not_null_sql}
             QUALIFY ROW_NUMBER() OVER (
-                PARTITION BY {id_column}
-                ORDER BY 
-                    filename DESC,
-                    {sorting_column} DESC NULLS LAST
+                PARTITION BY {deduplication_key_sql}
+                ORDER BY {order_by_sql}
             ) = 1
         )
         TO '{temp_output}'
@@ -52,8 +55,8 @@ def deduplicate_by_id(bucket, name, values, config, con):
     con.execute(query)
 
     row_count = con.execute(f"""
-    SELECT COUNT(*)
-    FROM read_parquet('{temp_output}')
+        SELECT COUNT(*)
+        FROM read_parquet('{temp_output}')
     """).fetchone()[0]
 
     if row_count == 0:
@@ -64,25 +67,31 @@ def deduplicate_by_id(bucket, name, values, config, con):
 
     rows_per_second = row_count / elapsed if elapsed > 0 else 0
 
+    null_rows = con.execute(f"""
+        SELECT COUNT(*)
+        FROM read_parquet('{temp_output}')
+        WHERE {key_has_null_sql}
+    """).fetchone()[0]
+
+    if null_rows > 0:
+        logger.error(f"Deduplicated {name}_{bucket} output contains NULL keys")
+        raise ValueError(f"Deduplicated {name}_{bucket} output contains NULL keys")
+
     duplicate_count = con.execute(f"""
         SELECT COUNT(*)
         FROM (
-            SELECT
-                {id_column},
-                COUNT(*) AS c
-            FROM read_parquet(
-                '{temp_output}'
-            )
-            GROUP BY {id_column}
-            HAVING c > 1
+            SELECT {deduplication_key_sql}
+            FROM read_parquet('{temp_output}')
+            GROUP BY {deduplication_key_sql}
+            HAVING COUNT(*) > 1
         )
     """).fetchone()[0]
 
     if duplicate_count > 0:
-        logger.error(f"Found {duplicate_count:,} duplicate {id_column}s in {name}_{bucket}")
-        raise ValueError(f"Found {duplicate_count:,} duplicate {id_column}s in {name}_{bucket}")
+        logger.error(f"Found {duplicate_count:,} duplicates in {name}_{bucket}")
+        raise ValueError(f"Found {duplicate_count:,} duplicates in {name}_{bucket}")
     else:
-        logger.info(f"Found {duplicate_count:,} duplicate {id_column}s in {name}_{bucket}")
+        logger.info(f"Found {duplicate_count:,} duplicates in {name}_{bucket}")
 
     os.replace(temp_output, output_name)
     logger.info(f"Wrote {row_count:,} deduplicated {name} rows to {name}_{bucket}")

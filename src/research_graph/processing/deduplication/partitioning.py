@@ -6,7 +6,7 @@ from research_graph.processing import writers
 logger = logging.getLogger(__name__)
 
 
-def partition_by_row(name, buckets_count, config, con):
+def partition_by_key(name, values, config, con):
     shards_root = config["shards_root"]
     temp_buckets_root = config["temp_buckets_root"]
 
@@ -14,6 +14,9 @@ def partition_by_row(name, buckets_count, config, con):
     sub_buckets_root = temp_buckets_root / name
 
     sub_buckets_root.mkdir(parents=True, exist_ok=True)
+
+    deduplication_key_sql = values['deduplication_key_sql']
+    buckets_count = values['buckets_count']
 
     input_paths_sql = writers.get_sql_input_paths(name, sub_shards_root)
     if not input_paths_sql:
@@ -29,7 +32,7 @@ def partition_by_row(name, buckets_count, config, con):
             SELECT
                 * EXCLUDE (filename),
                 regexp_extract(filename, '{snapshot_date_regex}', 1) AS snapshot_date,
-                abs(hash(*columns(*))) % {buckets_count} AS bucket
+                abs(hash({deduplication_key_sql})) % {buckets_count} AS bucket
             FROM read_parquet(
                 [{input_paths_sql}],
                 filename=true
@@ -45,9 +48,17 @@ def partition_by_row(name, buckets_count, config, con):
 
     logger.info(f"Running {name} partitioning query")
     con.execute(query)
-
+    
     done_file = sub_buckets_root / "done.json"
     with done_file.open("w", encoding="utf-8") as f:
-        json.dump({"buckets_count": buckets_count}, f, indent=2)
+        json.dump(
+            {
+                "deduplication_key_sql": values['deduplication_key_sql'],
+                "order_by_sql": values['order_by_sql'],
+                "buckets_count": values['buckets_count'],
+            },
+            f,
+            indent=2
+        )
         
     return True

@@ -12,6 +12,9 @@ filtered_tables_path: "filtered_tables"
 logs_path: "logs"
 concept_score_threshold: 0.3
 include_abstract_inverted: False
+temp_cleanup: True
+deduplication_chunk_size: 4
+global_duplicate_check: False
 selected_concepts:
   enabled: True
   get_all_concepts: False
@@ -27,7 +30,6 @@ graph_filter_concepts:
   - "C2776899757"
   - "C105795698"
   - "C2522767166"
-temp_cleanup: True
 enabled_pipelines:
   - works
   - authors
