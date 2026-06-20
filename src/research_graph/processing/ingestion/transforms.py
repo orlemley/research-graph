@@ -239,8 +239,6 @@ def get_authors_row(author):
     return {
         'author_id': strip_openalex_id(author.get('id', None)),
         'author_name': basic_text_clean(author.get('display_name', None)),
-        'first_publication_year': author.get('first_publication_year', None),
-        'last_publication_year': author.get('last_publication_year', None),
         'works_count': author.get('works_count', None),
         'cited_by_count': author.get('cited_by_count', None),
         'h_index': (author.get('summary_stats', {}) or {}).get('h_index', None)
