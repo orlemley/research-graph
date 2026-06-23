@@ -146,7 +146,7 @@ def create_authors_metrics_final_stage(config, con):
                 SELECT
                     authorships.author_id,
                     SUM(works_metrics.local_in_citations) AS local_citation_count,
-                    AVG(works_metrics.local_in_citations) AS mean_local_in_citations,
+                    AVG(COALESCE(works_metrics.local_in_citations, 0)) AS mean_local_in_citations,
                     MAX(works_metrics.local_in_citations) AS max_local_in_citations
                 FROM
                     read_parquet(

@@ -112,7 +112,7 @@ def create_institutions_metrics_stage_2(config, con):
                 SELECT
                     institution_works.institution_id,
                     SUM(works_metrics.local_in_citations) AS local_citation_count,
-                    AVG(works_metrics.local_in_citations) AS mean_local_in_citations,
+                    AVG(COALESCE(works_metrics.local_in_citations, 0)) AS mean_local_in_citations,
                     MAX(works_metrics.local_in_citations) AS max_local_in_citations
                 FROM
                     institution_works

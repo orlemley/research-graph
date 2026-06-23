@@ -4,6 +4,7 @@ from research_graph.processing.metrics import works_metrics
 from research_graph.processing.metrics import authors_metrics
 from research_graph.processing.metrics import sources_metrics
 from research_graph.processing.metrics import institutions_metrics
+from research_graph.processing.metrics import concepts_metrics
 
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ def run(context):
     authors_metrics_root = metrics_root / "authors_metrics"
     sources_metrics_root = metrics_root / "sources_metrics"
     institutions_metrics_root = metrics_root / "institutions_metrics"
+    concepts_metrics_root = metrics_root / "concepts_metrics"
 
     works_metrics_path_1 = works_metrics_root / "works_metrics_stage_1.parquet"
     works_metrics_path_2 = works_metrics_root / "works_metrics_stage_2.parquet"
@@ -34,6 +36,10 @@ def run(context):
 
     institutions_metrics_path_1 = institutions_metrics_root / "institutions_metrics_stage_1.parquet"
     institutions_metrics_path_2 = institutions_metrics_root / "institutions_metrics.parquet"
+
+    concepts_metrics_path_1 = concepts_metrics_root / "concepts_metrics_stage_1.parquet"
+    concepts_metrics_path_2 = concepts_metrics_root / "concepts_metrics_stage_2.parquet"
+    concepts_metrics_path_final = concepts_metrics_root / "concepts_metrics.parquet"
 
     concepts = config["graph_filter_concepts"]
 
@@ -106,3 +112,24 @@ def run(context):
         elif not institutions_metrics_path_1.exists() and not institutions_metrics_path_2.exists():
             logger.error("Cannot process institutions metrics stage 2 because stage 1 doesn't exist yet")
             raise RuntimeError("Cannot process institutions metrics stage 2 because stage 1 doesn't exist yet")
+        
+        if not concepts_metrics_path_1.exists() and not (concepts_metrics_path_2.exists() or concepts_metrics_path_final.exists()):
+            logger.info("Starting concepts metrics stage 1")
+            concepts_metrics.create_concepts_metrics_stage_1(config, con)
+            logger.info("Finished concepts metrics stage 1")
+
+        if concepts_metrics_path_1.exists() and not concepts_metrics_path_2.exists() and not concepts_metrics_path_final.exists():
+            logger.info("Starting concepts metrics stage 2")
+            concepts_metrics.create_concepts_metrics_stage_2(config, con)
+            logger.info("Finished concepts metrics stage 2")
+        elif not concepts_metrics_path_1.exists() and not concepts_metrics_path_2.exists() and not concepts_metrics_path_final.exists():
+            logger.error("Cannot process concepts metrics stage 2 because stage 1 doesn't exist yet")
+            raise RuntimeError("Cannot process concepts metrics stage 2 because stage 1 doesn't exist yet")
+        
+        if concepts_metrics_path_2.exists() and not concepts_metrics_path_final.exists():
+            logger.info("Starting concepts metrics final stage")
+            concepts_metrics.create_concepts_metrics_final_stage(config, con)
+            logger.info("Finished concepts metrics final stage")
+        elif not concepts_metrics_path_2.exists() and not concepts_metrics_path_final.exists():
+            logger.error("Cannot process concepts metrics final stage because stage 2 doesn't exist yet")
+            raise RuntimeError("Cannot process concepts metrics final stage because stage 2 doesn't exist yet")
