@@ -8,12 +8,11 @@ logger = logging.getLogger(__name__)
 
 
 def create_authors_metrics_stage_1(config, con):
-    tables_root = config["tables_root"]
     filtered_tables_root = config["filtered_tables_root"]
     metrics_root = config["metrics_root"]
 
     filtered_authorships_root = filtered_tables_root / "filtered_authorships"
-    authors_root = tables_root / "authors"
+    filtered_authors_root = filtered_tables_root / "filtered_authors"
 
     authors_metrics_root = metrics_root / "authors_metrics"
     authors_metrics_path_1 = authors_metrics_root / "authors_metrics_stage_1.parquet"
@@ -39,7 +38,7 @@ def create_authors_metrics_stage_1(config, con):
                 GROUP BY author_id
             )
             SELECT
-                filtered_author_ids.author_id,
+                author_ids.author_id,
                 COALESCE(authorships_metrics.local_works_count, 0) AS local_works_count,
                 COALESCE(authorships_metrics.first_author_count, 0) AS first_author_count,
                 COALESCE(authorships_metrics.last_author_count, 0) AS last_author_count,
@@ -48,11 +47,11 @@ def create_authors_metrics_stage_1(config, con):
                 (
                     SELECT author_id
                     FROM read_parquet(
-                        '{authors_root}/*.parquet'
+                        '{filtered_authors_root}/*.parquet'
                     )
-                ) filtered_author_ids
+                ) author_ids
                 LEFT JOIN authorships_metrics
-                ON filtered_author_ids.author_id = authorships_metrics.author_id
+                ON author_ids.author_id = authorships_metrics.author_id
         )
         TO '{temp_authors_metrics_1}'
         (
@@ -103,7 +102,7 @@ def create_authors_metrics_stage_2(config, con):
                 authors_metrics.author_id,
                 publication_years_metrics.first_publication_year,
                 publication_years_metrics.last_publication_year,
-                publication_years_metrics.first_publication_year - publication_years_metrics.last_publication_year + 1 AS years_active
+                publication_years_metrics.last_publication_year - publication_years_metrics.first_publication_year + 1 AS years_active
             FROM
                 read_parquet(
                     '{authors_metrics_path_1}'

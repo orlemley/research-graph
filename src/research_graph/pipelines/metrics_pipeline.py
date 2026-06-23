@@ -3,6 +3,7 @@ import duckdb
 from research_graph.processing.metrics import works_metrics
 from research_graph.processing.metrics import authors_metrics
 from research_graph.processing.metrics import sources_metrics
+from research_graph.processing.metrics import institutions_metrics
 
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ def run(context):
     works_metrics_root = metrics_root / "works_metrics"
     authors_metrics_root = metrics_root / "authors_metrics"
     sources_metrics_root = metrics_root / "sources_metrics"
+    institutions_metrics_root = metrics_root / "institutions_metrics"
 
     works_metrics_path_1 = works_metrics_root / "works_metrics_stage_1.parquet"
     works_metrics_path_2 = works_metrics_root / "works_metrics_stage_2.parquet"
@@ -28,7 +30,10 @@ def run(context):
     authors_metrics_path_final = authors_metrics_root / "authors_metrics.parquet"
 
     sources_metrics_path_1 = sources_metrics_root / "sources_metrics_stage_1.parquet"
-    sources_metrics_path_2 = sources_metrics_root / "sources_metrics_stage_2.parquet"
+    sources_metrics_path_2 = sources_metrics_root / "sources_metrics.parquet"
+
+    institutions_metrics_path_1 = institutions_metrics_root / "institutions_metrics_stage_1.parquet"
+    institutions_metrics_path_2 = institutions_metrics_root / "institutions_metrics.parquet"
 
     concepts = config["graph_filter_concepts"]
 
@@ -80,7 +85,7 @@ def run(context):
             logger.info("Starting sources metrics stage 1")
             sources_metrics.create_sources_metrics_stage_1(config, con)
             logger.info("Finished sources metrics stage 1")
-        
+
         if sources_metrics_path_1.exists() and not sources_metrics_path_2.exists():
             logger.info("Starting sources metrics stage 2")
             sources_metrics.create_sources_metrics_stage_2(config, con)
@@ -88,3 +93,16 @@ def run(context):
         elif not sources_metrics_path_1.exists() and not sources_metrics_path_2.exists():
             logger.error("Cannot process sources metrics stage 2 because stage 1 doesn't exist yet")
             raise RuntimeError("Cannot process sources metrics stage 2 because stage 1 doesn't exist yet")
+        
+        if not institutions_metrics_path_1.exists() and not (institutions_metrics_path_2.exists()):
+            logger.info("Starting institutions metrics stage 1")
+            institutions_metrics.create_institutions_metrics_stage_1(config, con)
+            logger.info("Finished institutions metrics stage 1")
+        
+        if institutions_metrics_path_1.exists() and not institutions_metrics_path_2.exists():
+            logger.info("Starting institutions metrics stage 2")
+            institutions_metrics.create_institutions_metrics_stage_2(config, con)
+            logger.info("Finished institutions metrics stage 2")
+        elif not institutions_metrics_path_1.exists() and not institutions_metrics_path_2.exists():
+            logger.error("Cannot process institutions metrics stage 2 because stage 1 doesn't exist yet")
+            raise RuntimeError("Cannot process institutions metrics stage 2 because stage 1 doesn't exist yet")
