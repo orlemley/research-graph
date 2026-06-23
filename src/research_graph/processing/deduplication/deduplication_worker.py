@@ -3,17 +3,14 @@ import argparse
 import psutil
 import time
 import duckdb
-from research_graph.processing import writers
-from research_graph.processing import key_deduplication
-from research_graph.processing import row_deduplication
-from research_graph.processing import partitioning
-from research_graph.processing import duplicate_check
-from research_graph.processing import tables_info
+from research_graph.processing.io import writers
+from research_graph.processing.deduplication import key_deduplication
+from research_graph.processing.deduplication import row_deduplication
+from research_graph.processing.deduplication import partitioning
+from research_graph.processing.deduplication import duplicate_check
+from research_graph.processing.deduplication import tables_info
 from research_graph.config import load_config
 from research_graph.config import setup_logging
-
-
-
 
 
 def main():

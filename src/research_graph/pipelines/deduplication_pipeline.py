@@ -5,8 +5,8 @@ import psutil
 import time
 import sys
 import subprocess
-from research_graph.processing import writers
-from research_graph.processing import tables_info
+from research_graph.processing.io import writers
+from research_graph.processing.deduplication import tables_info
 
 
 logger = logging.getLogger(__name__)

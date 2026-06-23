@@ -9,6 +9,7 @@ shards_path: "shards"
 tables_path: "tables"
 temp_buckets_path: "temp_buckets"
 filtered_tables_path: "filtered_tables"
+metrics_path: "metrics"
 logs_path: "logs"
 concept_score_threshold: 0.3
 include_abstract_inverted: False
@@ -35,3 +36,4 @@ enabled_pipelines:
   - authors
   - deduplication
   - graph_filtering
+  - metrics

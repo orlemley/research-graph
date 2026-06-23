@@ -1,10 +1,10 @@
 import logging
 import time
-from research_graph.processing import schemas
+from research_graph.processing.ingestion import schemas
 from research_graph.processing import paths
-from research_graph.processing import transforms
-from research_graph.processing import shards
-from research_graph.processing import writers
+from research_graph.processing.ingestion import transforms
+from research_graph.processing.io import shards
+from research_graph.processing.io import writers
 
 
 logger = logging.getLogger(__name__)

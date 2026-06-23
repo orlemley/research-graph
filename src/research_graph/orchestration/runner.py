@@ -1,16 +1,18 @@
-from research_graph.processing import writers
+from research_graph.processing.io import writers
 
 from research_graph.pipelines import works_pipeline
 from research_graph.pipelines import authors_pipeline
 from research_graph.pipelines import deduplication_pipeline
 from research_graph.pipelines import graph_filtering_pipeline
+from research_graph.pipelines import metrics_pipeline
 
 
 PIPELINES = {
     "works": works_pipeline.run,
     "authors": authors_pipeline.run,
     "deduplication": deduplication_pipeline.run,
-    "graph_filtering": graph_filtering_pipeline.run
+    "graph_filtering": graph_filtering_pipeline.run,
+    "metrics": metrics_pipeline.run
 }
 
 

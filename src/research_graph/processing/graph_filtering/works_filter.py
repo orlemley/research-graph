@@ -1,7 +1,7 @@
 import logging
 import uuid
 import os
-from research_graph.processing import writers
+from research_graph.processing.io import writers
 
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ def filter_works_table(file_number, config, con):
     works_input_path = works_input_root / f"works_{file_number}.parquet"
     temp_output = output_path.parent / f"{output_path.stem}.{uuid.uuid4().hex[:8]}.tmp.parquet"
 
-    query = (f'''
+    query = f'''
         COPY (
             SELECT works.*
             FROM 
@@ -40,7 +40,7 @@ def filter_works_table(file_number, config, con):
             FORMAT PARQUET,
             COMPRESSION ZSTD
         )
-    ''')
+    '''
 
     logger.info(f"Filtering works bucket {file_number}")
     con.execute(query)
