@@ -1,4 +1,4 @@
-from research_graph.processing import writers
+from research_graph.processing.io import writers
 
 
 def check_duplicate_keys(output_root, deduplication_key_sql, con):

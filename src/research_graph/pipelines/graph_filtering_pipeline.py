@@ -154,7 +154,7 @@ def run(context):
 
         reference_table_files_exist = []
 
-        if (filtered_tables_root / "relationship_tables.done").exists():
+        if (filtered_tables_root / "relationship_tables.done").exists() and not (filtered_tables_root / "reference_tables.done").exists():
             for name, values in REFERENCE_TABLES.items():
                 sub_tables_root = tables_root / name
                 sub_filtered_tables_root = filtered_tables_root / f"filtered_{name}"
